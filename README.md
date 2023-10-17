@@ -1,7 +1,6 @@
 # Gette-rs: Rust Downloader Library
 
 ![Rust Version](https://img.shields.io/badge/Rust-1.73%2B-green.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![rust](https://github.com/ChrisMcKenzie/gette-rs/actions/workflows/rust.yml/badge.svg)
 
 Gette-rs is a versatile and high-performance Rust library designed for downloading files from various sources, including local files and cloud blob stores. This library is intended for developers who need a reliable and efficient way to fetch data from a wide range of sources while maintaining Rust's safety and performance standards.
