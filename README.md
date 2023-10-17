@@ -24,7 +24,7 @@ Add Gette-rs to your project's `Cargo.toml`:
 
 ```toml
 [dependencies]
-gette-rs = "0.1"
+gette = "0.1"
 ```
 
 
@@ -33,8 +33,8 @@ gette-rs = "0.1"
 Downloading a file is straightforward with Gette-rs:
 
 ```rust
-use gette_rs::Builder
-use gette_rs::getters;
+use gette::Builder
+use gette::getters;
 
 fn main()  {
     let dest = "/tmp/readme.md";
