@@ -34,12 +34,13 @@ Downloading a file is straightforward with Gette-rs:
 
 ```rust
 use gette_rs::Builder
-use gette_rs::getters::FileGetter;
+use gette_rs::getters;
 
 fn main()  {
     let dest = "/tmp/readme.md";
     let source = "git://github.com/chrismckenzie/gette-rs/readme.md";
     let builder = Builder::new();
+    builder.add_getter(file::Getter::new());
     builder.get(dest, source).unwrap();
     println!("File downloaded successfully!");
     Ok(())

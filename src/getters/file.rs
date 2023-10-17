@@ -1,8 +1,8 @@
 use std::{fs, path::Path};
 
-pub struct FileGetter;
+pub struct Getter;
 
-impl crate::Getter for FileGetter {
+impl crate::Getter for Getter {
     fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
         self.get(dest, source)
     }
@@ -21,7 +21,7 @@ impl crate::Getter for FileGetter {
     }
 }
 
-impl FileGetter {
+impl Getter {
     #[cfg(target_family = "unix")]
     fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
         // validate source
@@ -96,7 +96,7 @@ mod tests {
 
         let dest = "/tmp/test2.txt";
 
-        let getter = FileGetter;
+        let getter = Getter;
         getter.get(dest, source).unwrap();
 
         let mut df = File::open(dest).unwrap();

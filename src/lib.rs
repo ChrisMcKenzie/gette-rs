@@ -1,7 +1,4 @@
-// use serde::Deserialize;
-// use url::Position;
-
-pub mod file;
+pub mod getters;
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,46 +18,6 @@ pub trait Getter {
     fn copy(&self, dest: &str, source: &str) -> Result<(), Error>;
     fn detect(&self, path: &str) -> bool;
 }
-
-// #[derive(Debug, Clone)]
-// pub enum Path {
-//     File(String),
-//     Git(String),
-//     Http(String),
-//     Https(String),
-//     Unknown(String),
-// }
-//
-// impl<'de> Deserialize<'de> for Path {
-//     fn deserialize<D>(deserializer: D) -> Result<Path, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         let s = String::deserialize(deserializer)?;
-//         Ok(From::from(s))
-//     }
-// }
-//
-// impl From<String> for Path {
-//     fn from(value: String) -> Self {
-//         let parsed = url::Url::parse(&value);
-//         match parsed {
-//             Ok(url) => {
-//                 let path = url[Position::BeforeUsername..].to_string();
-//                 // TODO(ChrisMcKenzie): this is fairly naive, and should also detect type based on
-//                 // the rest of the url i.e. github.com is likely a git type
-//                 match url.scheme() {
-//                     "file" => Path::File(path),
-//                     "git" => Path::Git(path),
-//                     "http" => Path::Http(path),
-//                     "https" => Path::Https(path),
-//                     _ => Path::Unknown(value),
-//                 }
-//             }
-//             Err(_) => Path::File(value),
-//         }
-//     }
-// }
 
 pub struct Builder {
     getters: Vec<Box<dyn Getter>>,
