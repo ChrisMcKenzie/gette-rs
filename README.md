@@ -39,7 +39,7 @@ fn main()  {
     let dest = "/tmp/readme.md";
     let source = "git://github.com/chrismckenzie/gette-rs/readme.md";
     let builder = Builder::new();
-    builder.add_getter(file::Getter::new());
+    builder.add_getter(git::Getter::new());
     builder.get(dest, source).unwrap();
     println!("File downloaded successfully!");
     Ok(())

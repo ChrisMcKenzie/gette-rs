@@ -1,3 +1,4 @@
+use crate::Error;
 use std::{fs, path::Path};
 
 pub struct Getter;
@@ -29,22 +30,21 @@ impl Getter {
         let dest = Path::new(dest);
 
         if !source.exists() {
-            return Err(crate::Error::SourceNotFound);
+            return Err(Error::SourceNotFound);
         }
 
         if dest.exists() {
-            let meta = fs::symlink_metadata(dest).map_err(|_| crate::Error::Unknown)?;
+            let meta = fs::symlink_metadata(dest).map_err(Error::Io)?.file_type();
             if !meta.is_symlink() {
-                return Err(crate::Error::DestinationExists);
+                return Err(Error::DestinationExists);
             }
 
-            fs::remove_file(dest).map_err(|_| crate::Error::Unknown)?
+            fs::remove_file(dest).map_err(Error::Io)?
         }
 
-        fs::create_dir_all(dest.parent().unwrap())
-            .map_err(|_| crate::Error::DestinationNotCreated)?;
+        fs::create_dir_all(dest.parent().unwrap()).map_err(|_| Error::DestinationNotCreated)?;
 
-        std::os::unix::fs::symlink(source, dest).map_err(|_| crate::Error::Unknown)?;
+        std::os::unix::fs::symlink(source, dest).map_err(Error::Io)?;
 
         Ok(())
     }
@@ -55,24 +55,23 @@ impl Getter {
         let dest = Path::new(dest);
 
         if !source.exists() {
-            return Err(crate::Error::SourceNotFound);
+            return Err(Error::SourceNotFound);
         }
 
         if dest.exists() {
-            let meta = fs::symlink_metadata(dest).map_err(|_| crate::Error::Unknown)?;
+            let meta = fs::symlink_metadata(dest).map_err(Error::Io)?.file_type();
             if !meta.is_symlink() {
-                return Err(crate::Error::DestinationExists);
+                return Err(Error::DestinationExists);
             }
-            fs::remove_file(dest).map_err(|_| crate::Error::Unknown)?
+            fs::remove_file(dest).map_err(crate::Error::Io)?
         }
 
-        fs::create_dir_all(dest.parent().unwrap())
-            .map_err(|_| crate::Error::DestinationNotCreated)?;
+        fs::create_dir_all(dest.parent().unwrap()).map_err(|_| Error::DestinationNotCreated)?;
 
         if source.is_dir() {
-            std::os::windows::fs::symlink_dir(source, dest).map_err(|_| crate::Error::Unknown)?;
+            std::os::windows::fs::symlink_dir(source, dest).map_err(crate::Error::Io)?;
         } else {
-            std::os::windows::fs::symlink_file(source, dest).map_err(|_| crate::Error::Unknown)?;
+            std::os::windows::fs::symlink_file(source, dest).map_err(crate::Error::Io)?;
         }
 
         Ok(())
@@ -90,11 +89,11 @@ mod tests {
 
     #[test]
     fn test_get_file_from_tmp() {
-        let source = "/tmp/test.txt";
+        let source = "test.txt";
         let mut f = File::create(source).unwrap();
         f.write_all("test".as_bytes()).unwrap();
 
-        let dest = "/tmp/test2.txt";
+        let dest = "test2.txt";
 
         let getter = Getter;
         getter.get(dest, source).unwrap();
@@ -105,5 +104,7 @@ mod tests {
 
         println!("{:?}", std::str::from_utf8(&buf).unwrap());
         assert_eq!(buf, "test".as_bytes());
+        fs::remove_file(source).unwrap();
+        fs::remove_file(dest).unwrap();
     }
 }
