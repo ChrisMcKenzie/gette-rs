@@ -11,10 +11,9 @@ env:
 
 jobs:
   build:
-    platform_matrix:
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     runs-on: ${matrix.os}
 
