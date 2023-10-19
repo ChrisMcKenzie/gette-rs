@@ -1,6 +1,9 @@
 use crate::Error;
-use std::{fs, path::Path};
+use std::{env, fs, path::Path};
+use std::path::PathBuf;
 use url::{Position, Url};
+
+use path_clean::{PathClean};
 
 pub struct File;
 
@@ -26,9 +29,11 @@ impl File {
         let u = Url::parse(source)?;
 
         // validate source
-        let source = Path::new(&u[Position::BeforeUsername..]);
-        let dest = Path::new(dest);
-        println!("{:?}", source);
+        let source = absolute_path(Path::new(&u[Position::BeforeUsername..]))?;
+        let dest = absolute_path(Path::new(dest))?;
+
+        let source = source.as_path();
+        let dest = dest.as_path();
 
         if !source.exists() {
             return Err(Error::SourceNotFound);
@@ -55,8 +60,11 @@ impl File {
         let u = Url::parse(source)?;
 
         // validate source
-        let source = Path::new(&u[Position::BeforeUsername..]);
-        let dest = Path::new(dest);
+        let source = absolute_path(Path::new(&u[Position::BeforeUsername..]))?;
+        let dest = absolute_path(Path::new(dest))?;
+
+        let source = source.as_path();
+        let dest = dest.as_path();
 
         if !source.exists() {
             return Err(Error::SourceNotFound);
@@ -73,40 +81,56 @@ impl File {
         fs::create_dir_all(dest.parent().unwrap()).map_err(|_| Error::DestinationNotCreated)?;
 
         if source.is_dir() {
-            std::os::windows::fs::symlink_dir(source, dest).map_err(crate::Error::Io)?;
+            std::os::windows::fs::symlink_dir(source, dest)?;
         } else {
-            std::os::windows::fs::symlink_file(source, dest).map_err(crate::Error::Io)?;
+            std::os::windows::fs::symlink_file(source, dest)?;
         }
 
         Ok(())
     }
 }
 
+fn absolute_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, crate::Error> {
+    let path = path.as_ref();
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        env::current_dir()?.join(path)
+    }.clean();
+
+    Ok(abs)
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
         fs::File,
-        io::{Read, Write},
+        io::{ Write},
     };
+    use std::io::Read;
 
     use super::*;
 
     #[test]
     fn test_get_file_from_tmp() {
         let source = "./test-1.txt";
-        let mut f = File::create(source).unwrap();
-        f.write_all("test".as_bytes()).unwrap();
+        if !Path::new(source).exists() {
+            let mut f = File::create(source).unwrap();
+            f.write_all("test".as_bytes()).unwrap();
+        }
 
-        let dest = "./test-2.txt";
+        let dest = "test-2.txt";
 
         let getter = File;
         getter.get(dest, "file://./test-1.txt").unwrap();
+
+        assert!(Path::new(dest).exists());
 
         let mut df = File::open(dest).unwrap();
         let mut buf = Vec::new();
         df.read_to_end(&mut buf).unwrap();
 
-        println!("{:?}", std::str::from_utf8(&buf).unwrap());
+        println!("file contents = {:?}", std::str::from_utf8(&buf).unwrap());
         assert_eq!(buf, "test".as_bytes());
         fs::remove_file(source).unwrap();
         fs::remove_file(dest).unwrap();
