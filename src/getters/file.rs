@@ -93,14 +93,14 @@ mod tests {
 
     #[test]
     fn test_get_file_from_tmp() {
-        let source = "test.txt";
+        let source = "./test-1.txt";
         let mut f = File::create(source).unwrap();
         f.write_all("test".as_bytes()).unwrap();
 
-        let dest = "test2.txt";
+        let dest = "./test-2.txt";
 
         let getter = File;
-        getter.get(dest, "file://./test.txt").unwrap();
+        getter.get(dest, "file://./test-1.txt").unwrap();
 
         let mut df = File::open(dest).unwrap();
         let mut buf = Vec::new();

@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_get_call() {
         let source = "./test.txt";
-        let dest = "test2.txt";
+        let dest = "./test2.txt";
         let mut f = File::create(source).unwrap();
         f.write_all("test".as_bytes()).unwrap();
         let b = Builder::new("file://./test.txt", dest).add_getter("file", Box::new(file::File));
