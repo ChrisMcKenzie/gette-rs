@@ -1,9 +1,16 @@
 use crate::Error;
 use std::{fs, path::Path};
+use url::{Position, Url};
 
-pub struct Getter;
+pub struct File;
 
-impl crate::Getter for Getter {
+impl crate::Detector for File {
+    fn detect(&self, path: &str) -> Option<String> {
+        Some(format!("file://{}", path).to_string())
+    }
+}
+
+impl crate::Getter for File {
     fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
         self.get(dest, source)
     }
@@ -11,23 +18,17 @@ impl crate::Getter for Getter {
     fn copy(&self, _dest: &str, _source: &str) -> Result<(), crate::Error> {
         Ok(())
     }
-
-    fn detect(&self, path: &str) -> bool {
-        let u = url::Url::parse(path).unwrap();
-        if u.scheme() == "file" {
-            return true;
-        }
-
-        false
-    }
 }
 
-impl Getter {
+impl File {
     #[cfg(target_family = "unix")]
     fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
+        let u = Url::parse(source)?;
+
         // validate source
-        let source = Path::new(source);
+        let source = Path::new(&u[Position::BeforeUsername..]);
         let dest = Path::new(dest);
+        println!("{:?}", source);
 
         if !source.exists() {
             return Err(Error::SourceNotFound);
@@ -51,7 +52,10 @@ impl Getter {
 
     #[cfg(target_family = "windows")]
     fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
-        let source = Path::new(source);
+        let u = Url::parse(source)?;
+
+        // validate source
+        let source = Path::new(&u[Position::BeforeUsername..]);
         let dest = Path::new(dest);
 
         if !source.exists() {
@@ -95,8 +99,8 @@ mod tests {
 
         let dest = "test2.txt";
 
-        let getter = Getter;
-        getter.get(dest, source).unwrap();
+        let getter = File;
+        getter.get(dest, "file://./test.txt").unwrap();
 
         let mut df = File::open(dest).unwrap();
         let mut buf = Vec::new();
