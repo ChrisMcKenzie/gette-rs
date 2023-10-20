@@ -104,6 +104,8 @@ impl Builder {
         for d in self.detectors.iter() {
             let res = d.detect(&self.src)?;
 
+            println!("res: {:?}", res);
+
             if res.is_none() {
                 continue;
             }
@@ -160,11 +162,12 @@ fn get_forced_proto(v: &str) -> (Option<&str>, &str) {
 mod tests {
 
     use std::{
+        env,
         fs::{self, File},
+      
         io::Write,
-    };
 
-    use futures::executor::block_on;
+    };
 
     use super::*;
 
@@ -179,17 +182,18 @@ mod tests {
     fn test_file_detect_without_proto() {
         let b = Builder::new("test.txt", "test2.txt");
         let res = b.detect().unwrap();
-        assert_eq!("file://test.txt", res);
+        let p = env::current_dir().unwrap().join("test.txt");
+        assert_eq!(format!("file://{}", p.to_str().unwrap()), res);
     }
 
-    #[test]
-    fn test_get_call() {
+    #[tokio::test]
+    async fn test_get_call() {
         let source = "./test.txt";
         let dest = "./test4.txt";
         let mut f = File::create(source).unwrap();
         f.write_all("test".as_bytes()).unwrap();
-        let b = Builder::new("file://./test.txt", dest).add_getter("file", Box::new(getters::File));
-        block_on(b.get()).unwrap();
+        let b = Builder::new("./test.txt", dest).add_getter("file", Box::new(getters::File));
+        b.get().await.unwrap();
         fs::remove_file(source).unwrap();
         fs::remove_file(dest).unwrap();
     }
