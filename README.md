@@ -13,8 +13,6 @@ Gette-rs is a versatile and high-performance Rust library designed for downloadi
 
 - **Error Handling**: Robust error handling to ensure the integrity of your downloads.
 
-- **Configurability**: Fine-tune your download settings with various options, such as retries, timeouts, and more.
-
 - **Rust Ecosystem Compatibility**: Easily integrate Gette-rs with other libraries, frameworks, and tools within the Rust ecosystem.
 
 ## Getting Started
@@ -33,24 +31,22 @@ Downloading a file is straightforward with Gette-rs:
 
 ```rust
 use gette::Builder
-use gette::getters;
 
 fn main()  {
     let dest = "/tmp/readme.md";
-    let source = "git://github.com/chrismckenzie/gette-rs/readme.md";
-    let builder = Builder::new();
-    builder.add_getter(git::Getter::new());
-    builder.get(dest, source).unwrap();
+    let source = "test-bucket.amazonaws.com/test.txt";
+    // this will automatically download the file from s3 to the local file system
+    let builder = Builder::new(source, dest).get().await.unwrap();
     println!("File downloaded successfully!");
     Ok(())
 }
 ```
 
-For more advanced usage, including cloud storage integration, please refer to the [official documentation](https://github.com/your/repo/link).
+For more advanced usage, including cloud storage integration, please refer to the [official documentation](https://docs.rs/gette).
 
 ## Contributing
 
-Gette-rs is an open-source project, and we welcome contributions from the community. If you find a bug, have a feature request, or want to contribute code, please refer to our [Contribution Guidelines](https://github.com/your/repo/link).
+Gette-rs is an open-source project, and we welcome contributions from the community. If you find a bug, have a feature request, or want to contribute code, please file an issue/PR.
 
 ## Contact
 
