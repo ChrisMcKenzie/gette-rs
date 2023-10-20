@@ -13,7 +13,7 @@ Gette-rs is a versatile and high-performance Rust library designed for downloadi
 
 - **Error Handling**: Robust error handling to ensure the integrity of your downloads.
 
-- **Rust Ecosystem Compatibility**: Easily integrate Gette-rs with other libraries, frameworks, and tools within the Rust ecosystem.
+- Extensible: Easily extend Gette-rs to support additional sources and protocols. [Extending Gette-rs](https://docs.rs/gette/latest/gette/trait.Getter.html#extending-gette)
 
 ## Getting Started
 

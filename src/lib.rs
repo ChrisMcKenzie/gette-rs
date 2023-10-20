@@ -13,8 +13,7 @@ pub enum Error {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    // Http(reqwest::Error),
-    // Git(git2::Error),
+
     #[error("source file not found")]
     SourceNotFound,
 
@@ -37,6 +36,38 @@ pub trait Detector {
     fn detect(&self, path: &str) -> Result<Option<String>, Error>;
 }
 
+/// Getter trait
+/// Implement this trait to add a new getter
+///
+/// ## Extending Gette
+///
+/// Gette is designed to be extensible. You can add your own getters by implementing this trait.
+/// the first step is to create a struct that implements this trait:
+/// 
+/// ```ignore
+/// use gette::Getter;
+/// use async_trait::async_trait;
+///
+/// pub struct MyGetter;
+/// #[async_trait]
+/// impl Getter for MyGetter {
+///     async fn get(&self, _dest: &str, _source: &str) -> Result<(), gette::Error> {
+///       Ok(())   
+///     }
+/// }
+///```
+///
+/// the next step is to add it to the builder:
+///
+///```ignore
+/// use gette::Builder;
+///
+/// let b = Builder::new("mygetter://test.txt", "test2.txt")
+///     .add_getter("mygetter", MyGetter)
+///     .get()
+///     .await
+///     .unwrap();
+///```
 #[async_trait]
 pub trait Getter {
     async fn get(&self, dest: &str, source: &str) -> Result<(), Error>;
@@ -62,11 +93,7 @@ impl Default for Builder {
             src: "".to_string(),
             dest: "".to_string(),
             getters,
-            detectors: vec![
-                Box::new(detectors::File),
-                Box::new(detectors::Github),
-                Box::new(detectors::S3),
-            ],
+            detectors: vec![Box::new(detectors::File), Box::new(detectors::S3)],
         }
     }
 }
@@ -188,12 +215,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_call() {
-        let source = "./test.txt";
-        let dest = "./test4.txt";
+        let source = "./test-get-call.txt";
+        let dest = "./test-get-call-destination.txt";
         let mut f = File::create(source).unwrap();
+
         f.write_all("test".as_bytes()).unwrap();
-        let b = Builder::new("./test.txt", dest).add_getter("file", Box::new(getters::File));
-        b.get().await.unwrap();
+        Builder::new(source, dest).get().await.unwrap();
         fs::remove_file(source).unwrap();
         fs::remove_file(dest).unwrap();
     }
