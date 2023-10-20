@@ -1,25 +1,18 @@
 use crate::Error;
-use std::{env, fs, path::Path};
+
+use async_trait::async_trait;
 use std::path::PathBuf;
+use std::{env, fs, path::Path};
 use url::{Position, Url};
 
-use path_clean::{PathClean};
+use path_clean::PathClean;
 
 pub struct File;
 
-impl crate::Detector for File {
-    fn detect(&self, path: &str) -> Option<String> {
-        Some(format!("file://{}", path).to_string())
-    }
-}
-
+#[async_trait]
 impl crate::Getter for File {
-    fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
+    async fn get(&self, dest: &str, source: &str) -> Result<(), crate::Error> {
         self.get(dest, source)
-    }
-
-    fn copy(&self, _dest: &str, _source: &str) -> Result<(), crate::Error> {
-        Ok(())
     }
 }
 
@@ -96,18 +89,16 @@ fn absolute_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, crate::Error> {
         path.to_path_buf()
     } else {
         env::current_dir()?.join(path)
-    }.clean();
+    }
+    .clean();
 
     Ok(abs)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        fs::File,
-        io::{ Write},
-    };
     use std::io::Read;
+    use std::{fs::File, io::Write};
 
     use super::*;
 

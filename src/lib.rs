@@ -1,13 +1,16 @@
-use std::collections::HashMap;
-
-use getters::file;
+use async_trait::async_trait;
 use regex::Regex;
+use std::collections::HashMap;
 use url::Url;
 
+pub mod detectors;
 pub mod getters;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("invalid url: {0}, reason: {1}")]
+    InvalidUrl(String, String),
+
     #[error(transparent)]
     Io(#[from] std::io::Error),
     // Http(reqwest::Error),
@@ -26,18 +29,20 @@ pub enum Error {
     #[error(transparent)]
     UrlParseError(#[from] url::ParseError),
 
-    #[error("unknown error")]
-    Unknown,
+    #[error(transparent)]
+    Unknown(#[from] Box<dyn std::error::Error>),
 }
 
 pub trait Detector {
-    fn detect(&self, path: &str) -> Option<String>;
+    fn detect(&self, path: &str) -> Result<Option<String>, Error>;
 }
 
+#[async_trait]
 pub trait Getter {
-    fn get(&self, dest: &str, source: &str) -> Result<(), Error>;
-    fn copy(&self, dest: &str, source: &str) -> Result<(), Error>;
+    async fn get(&self, dest: &str, source: &str) -> Result<(), Error>;
 }
+
+pub trait Decompressor {}
 
 pub struct Builder {
     src: String,
@@ -48,11 +53,14 @@ pub struct Builder {
 
 impl Default for Builder {
     fn default() -> Self {
+        let mut getters: HashMap<String, Box<dyn Getter>> = HashMap::new();
+        getters.insert("file".to_string(), Box::new(getters::File));
+
         Self {
             src: "".to_string(),
             dest: "".to_string(),
-            getters: HashMap::from([]),
-            detectors: vec![Box::new(file::File)],
+            getters,
+            detectors: vec![Box::new(detectors::File), Box::new(detectors::Github)],
         }
     }
 }
@@ -88,7 +96,7 @@ impl Builder {
         }
 
         for d in self.detectors.iter() {
-            let res = d.detect(&self.src);
+            let res = d.detect(&self.src)?;
 
             if res.is_none() {
                 continue;
@@ -109,7 +117,7 @@ impl Builder {
         Err(Error::GetterNotFound(self.src.clone()))
     }
 
-    pub fn get(&self) -> Result<(), Error> {
+    pub async fn get(&self) -> Result<(), Error> {
         let src = self.detect()?;
 
         let (mut forced, src) = get_forced_proto(&src);
@@ -120,7 +128,7 @@ impl Builder {
         }
 
         if let Some(getter) = self.getters.get(forced.unwrap()) {
-            return getter.get(&self.dest, src);
+            return getter.get(&self.dest, src).await;
         }
 
         Ok(())
@@ -150,6 +158,8 @@ mod tests {
         io::Write,
     };
 
+    use futures::executor::block_on;
+
     use super::*;
 
     #[test]
@@ -169,11 +179,11 @@ mod tests {
     #[test]
     fn test_get_call() {
         let source = "./test.txt";
-        let dest = "./test2.txt";
+        let dest = "./test4.txt";
         let mut f = File::create(source).unwrap();
         f.write_all("test".as_bytes()).unwrap();
-        let b = Builder::new("file://./test.txt", dest).add_getter("file", Box::new(file::File));
-        b.get().unwrap();
+        let b = Builder::new("file://./test.txt", dest).add_getter("file", Box::new(getters::File));
+        block_on(b.get()).unwrap();
         fs::remove_file(source).unwrap();
         fs::remove_file(dest).unwrap();
     }
