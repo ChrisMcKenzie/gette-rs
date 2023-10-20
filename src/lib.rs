@@ -55,12 +55,18 @@ impl Default for Builder {
     fn default() -> Self {
         let mut getters: HashMap<String, Box<dyn Getter>> = HashMap::new();
         getters.insert("file".to_string(), Box::new(getters::File));
+        let s3: Box<getters::S3> = Box::default();
+        getters.insert("s3".to_string(), s3);
 
         Self {
             src: "".to_string(),
             dest: "".to_string(),
             getters,
-            detectors: vec![Box::new(detectors::File), Box::new(detectors::Github)],
+            detectors: vec![
+                Box::new(detectors::File),
+                Box::new(detectors::Github),
+                Box::new(detectors::S3),
+            ],
         }
     }
 }

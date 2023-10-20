@@ -6,17 +6,19 @@ use futures::{executor::block_on, TryStreamExt};
 
 use crate::Error;
 
+pub type S3 = S3Getter<Client>;
+
 #[async_trait]
 pub trait S3Client {
     async fn get_object(&self, bucket: &str, prefix: &str) -> Result<GetObjectOutput, Error>;
 }
 
-struct Client {
+pub struct Client {
     client: aws_sdk_s3::Client,
 }
 
 impl Client {
-    fn new(client: aws_sdk_s3::Client) -> Self {
+    pub fn new(client: aws_sdk_s3::Client) -> Self {
         Self { client }
     }
 }
@@ -34,14 +36,14 @@ impl S3Client for Client {
     }
 }
 
-pub struct S3<T>
+pub struct S3Getter<T>
 where
     T: S3Client,
 {
     client: T,
 }
 
-impl Default for S3<Client> {
+impl Default for S3Getter<Client> {
     fn default() -> Self {
         let config = block_on(aws_config::from_env().load());
 
@@ -52,7 +54,7 @@ impl Default for S3<Client> {
 }
 
 #[async_trait]
-impl<T: S3Client + Sync + Send> crate::Getter for S3<T> {
+impl<T: S3Client + Sync + Send> crate::Getter for S3Getter<T> {
     async fn get(&self, _dest: &str, source: &str) -> Result<(), Error> {
         let u = url::Url::parse(source)?;
 
@@ -124,7 +126,7 @@ mod tests {
             content: "test".to_string(),
         };
 
-        let g = S3 { client };
+        let g = S3Getter { client };
 
         let dest = "test.txt";
 
