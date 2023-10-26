@@ -14,6 +14,9 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
+    #[error("client not set")]
+    ClientNotSet,
+
     #[error("source file not found")]
     SourceNotFound,
 
@@ -43,7 +46,7 @@ pub trait Detector {
 ///
 /// Gette is designed to be extensible. You can add your own getters by implementing this trait.
 /// the first step is to create a struct that implements this trait:
-/// 
+///
 /// ```ignore
 /// use gette::Getter;
 /// use async_trait::async_trait;
@@ -71,6 +74,9 @@ pub trait Detector {
 #[async_trait]
 pub trait Getter {
     async fn get(&self, dest: &str, source: &str) -> Result<(), Error>;
+    async fn set_client(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 pub trait Decompressor {}
@@ -86,8 +92,9 @@ impl Default for Builder {
     fn default() -> Self {
         let mut getters: HashMap<String, Box<dyn Getter>> = HashMap::new();
         getters.insert("file".to_string(), Box::new(getters::File));
-        let s3: Box<getters::S3> = Box::default();
-        getters.insert("s3".to_string(), s3);
+
+        let s3 = getters::S3::default();
+        getters.insert("s3".to_string(), Box::new(s3));
 
         Self {
             src: "".to_string(),
@@ -191,22 +198,20 @@ mod tests {
     use std::{
         env,
         fs::{self, File},
-      
         io::Write,
-
     };
 
     use super::*;
 
-    #[test]
-    fn test_simple_detect() {
+    #[tokio::test]
+    async fn test_simple_detect() {
         let b = Builder::new("file://test.txt", "test2.txt");
         let res = b.detect().unwrap();
         assert_eq!("file://test.txt", res);
     }
 
-    #[test]
-    fn test_file_detect_without_proto() {
+    #[tokio::test]
+    async fn test_file_detect_without_proto() {
         let b = Builder::new("test.txt", "test2.txt");
         let res = b.detect().unwrap();
         let p = env::current_dir().unwrap().join("test.txt");

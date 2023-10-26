@@ -2,31 +2,54 @@ use std::io::Write;
 
 use async_trait::async_trait;
 use aws_sdk_s3::operation::get_object::GetObjectOutput;
-use futures::{executor::block_on, TryStreamExt};
+use futures::TryStreamExt;
 
 use crate::Error;
 
 pub type S3 = S3Getter<Client>;
 
+impl Default for S3 {
+    fn default() -> Self {
+        Self { client: None }
+    }
+}
+
 #[async_trait]
 pub trait S3Client {
     async fn get_object(&self, bucket: &str, prefix: &str) -> Result<GetObjectOutput, Error>;
+    async fn setup(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self { client: None }
+    }
 }
 
 pub struct Client {
-    client: aws_sdk_s3::Client,
+    client: Option<aws_sdk_s3::Client>,
 }
 
 impl Client {
-    pub fn new(client: aws_sdk_s3::Client) -> Self {
-        Self { client }
+    fn set_client(&mut self, client: aws_sdk_s3::Client) {
+        self.client = Some(client);
     }
 }
 
 #[async_trait]
 impl S3Client for Client {
+    async fn setup(&mut self) -> Result<(), Error> {
+        let config = aws_config::load_from_env().await;
+        let client = aws_sdk_s3::Client::new(&config);
+        self.set_client(client);
+
+        Ok(())
+    }
     async fn get_object(&self, bucket: &str, prefix: &str) -> Result<GetObjectOutput, Error> {
-        self.client
+        let client = self.client.as_ref().unwrap();
+        client
             .get_object()
             .bucket(bucket)
             .key(prefix)
@@ -40,30 +63,31 @@ pub struct S3Getter<T>
 where
     T: S3Client,
 {
-    client: T,
-}
-
-impl Default for S3Getter<Client> {
-    fn default() -> Self {
-        let config = block_on(aws_config::from_env().load());
-
-        Self {
-            client: Client::new(aws_sdk_s3::Client::new(&config)),
-        }
-    }
+    client: Option<T>,
 }
 
 #[async_trait]
-impl<T: S3Client + Sync + Send> crate::Getter for S3Getter<T> {
+impl<T: S3Client + Sync + Send + Default> crate::Getter for S3Getter<T> {
+    async fn set_client(&mut self) -> Result<(), Error> {
+        if self.client.is_none() {
+            let mut client = T::default();
+            client.setup().await?;
+            self.client = Some(client)
+        }
+
+        Ok(())
+    }
     async fn get(&self, _dest: &str, source: &str) -> Result<(), Error> {
         let u = url::Url::parse(source)?;
+
+        let client = self.client.as_ref().unwrap();
 
         let domain = u.domain().unwrap();
         let bucket = domain.split('.').next().unwrap();
 
         let path = u.path().strip_prefix('/').unwrap_or(u.path());
 
-        let mut object = self.client.get_object(bucket, path).await?;
+        let mut object = client.get_object(bucket, path).await?;
 
         let mut dest_file = std::fs::File::create(_dest)?;
         while let Some(chunk) = object
@@ -98,6 +122,17 @@ mod tests {
         content: String,
     }
 
+    impl Default for MockS3Client {
+        fn default() -> Self {
+            Self {
+                expected_bucket: "".to_string(),
+                expected_prefix: "".to_string(),
+                object: aws_sdk_s3::types::Object::builder().size(0).build(),
+                content: "".to_string(),
+            }
+        }
+    }
+
     #[async_trait]
     impl S3Client for MockS3Client {
         async fn get_object(&self, bucket: &str, prefix: &str) -> Result<GetObjectOutput, Error> {
@@ -126,7 +161,9 @@ mod tests {
             content: "test".to_string(),
         };
 
-        let g = S3Getter { client };
+        let g: S3Getter<MockS3Client> = S3Getter {
+            client: Some(client),
+        };
 
         let dest = "test.txt";
 
