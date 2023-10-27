@@ -22,12 +22,7 @@ pub trait S3Client {
     }
 }
 
-impl Default for Client {
-    fn default() -> Self {
-        Self { client: None }
-    }
-}
-
+#[derive(Default)]
 pub struct Client {
     client: Option<aws_sdk_s3::Client>,
 }

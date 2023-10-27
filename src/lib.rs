@@ -85,12 +85,12 @@ pub struct Builder {
     src: String,
     dest: String,
     detectors: Vec<Box<dyn Detector>>,
-    getters: HashMap<String, Box<dyn Getter>>,
+    getters: HashMap<String, Box<dyn Getter + Send>>,
 }
 
 impl Default for Builder {
     fn default() -> Self {
-        let mut getters: HashMap<String, Box<dyn Getter>> = HashMap::new();
+        let mut getters: HashMap<String, Box<dyn Getter + Send>> = HashMap::new();
         getters.insert("file".to_string(), Box::new(getters::File));
 
         let s3 = getters::S3::default();
@@ -114,7 +114,7 @@ impl Builder {
         }
     }
 
-    pub fn add_getter(mut self, name: &str, getter: Box<dyn Getter>) -> Self {
+    pub fn add_getter(mut self, name: &str, getter: Box<dyn Getter + Send>) -> Self {
         self.getters.insert(name.to_string(), getter);
         self
     }
@@ -173,10 +173,6 @@ impl Builder {
             return getter.get(&self.dest, src).await;
         }
 
-        Ok(())
-    }
-
-    pub fn copy(self) -> Result<(), Error> {
         Ok(())
     }
 }
