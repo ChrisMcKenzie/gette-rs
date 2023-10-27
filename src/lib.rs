@@ -225,7 +225,9 @@ mod tests {
         let mut f = File::create(source).unwrap();
 
         f.write_all("test".as_bytes()).unwrap();
-        Builder::new(source, dest).get().await.unwrap();
+        let builder = Builder::new(source, dest);
+        println!("src: {:?}\ndest: {:?}", builder.src, builder.dest);
+        builder.get().await.unwrap();
         fs::remove_file(source).unwrap();
         fs::remove_file(dest).unwrap();
     }
