@@ -36,7 +36,7 @@ fn main()  {
     let dest = "/tmp/readme.md";
     let source = "test-bucket.amazonaws.com/test.txt";
     // this will automatically download the file from s3 to the local file system
-    let builder = Builder::new(source, dest).get().await.unwrap();
+    let builder = Builder::builder().src(source.to_string()).dest(dest).get().await.unwrap();
     println!("File downloaded successfully!");
     Ok(())
 }

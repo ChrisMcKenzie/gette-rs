@@ -72,7 +72,7 @@ impl<T: S3Client + Sync + Send + Default> crate::Getter for S3Getter<T> {
 
         Ok(())
     }
-    async fn get(&self, _dest: &str, source: &str) -> Result<(), Error> {
+    async fn get(&self, dest: &str, source: &str) -> Result<(), Error> {
         let u = url::Url::parse(source)?;
 
         let client = self.client.as_ref().unwrap();
@@ -84,7 +84,7 @@ impl<T: S3Client + Sync + Send + Default> crate::Getter for S3Getter<T> {
 
         let mut object = client.get_object(bucket, path).await?;
 
-        let mut dest_file = std::fs::File::create(_dest)?;
+        let mut dest_file = std::fs::File::create(dest)?;
         while let Some(chunk) = object
             .body
             .try_next()

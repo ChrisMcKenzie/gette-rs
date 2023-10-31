@@ -15,7 +15,7 @@ impl Github {
         if parts.len() < 3 {
             return Err(crate::Error::InvalidUrl(
                 path.to_string(),
-                "github.com urls shoul have the following format github.com/:username/:repo"
+                "github.com urls should have the following format github.com/:username/:repo"
                     .to_string(),
             ));
         }
