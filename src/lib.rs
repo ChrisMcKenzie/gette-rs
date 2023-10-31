@@ -48,28 +48,41 @@ pub trait Detector {
 /// the first step is to create a struct that implements this trait:
 ///
 /// ```ignore
-/// use gette::Getter;
+/// use gette::getter;
 /// use async_trait::async_trait;
 ///
-/// pub struct MyGetter;
+/// pub struct mygetter;
 /// #[async_trait]
-/// impl Getter for MyGetter {
-///     async fn get(&self, _dest: &str, _source: &str) -> Result<(), gette::Error> {
-///       Ok(())   
+/// impl getter for mygetter {
+///     async fn get(&self, _dest: &str, _source: &str) -> result<(), gette::error> {
+///       ok(())   
 ///     }
 /// }
 ///```
 ///
 /// the next step is to add it to the builder:
 ///
-///```ignore
-/// use gette::Builder;
+///```rust
+/// use gette::RequestBuilder;
+/// # use gette::Getter;
+/// # use async_trait::async_trait;
 ///
-/// let b = Builder::new("mygetter://test.txt", "test2.txt")
-///     .add_getter("mygetter", MyGetter)
+/// # pub struct Mygetter;
+/// # #[async_trait]
+/// # impl Getter for Mygetter {
+/// #     async fn get(&self, _dest: &str, _source: &str) -> Result<(), gette::Error> {
+/// #       Ok(())   
+/// #     }
+/// # }
+///
+/// # tokio_test::block_on(async {
+/// let b = RequestBuilder::builder().src("mygetter://test.txt".to_string())
+///     .dest("test2.txt".to_string())
+///     .add_getter("mygetter", Box::new(Mygetter))
 ///     .get()
 ///     .await
 ///     .unwrap();
+/// # })
 ///```
 #[async_trait]
 pub trait Getter {
@@ -81,14 +94,24 @@ pub trait Getter {
 
 pub trait Decompressor {}
 
-pub struct Builder {
-    src: String,
-    dest: String,
+#[derive(Default, Debug)]
+pub struct NoSrc;
+#[derive(Default, Debug)]
+pub struct Src(String);
+
+#[derive(Default, Debug)]
+pub struct NoDest;
+#[derive(Default, Debug)]
+pub struct Dest(String);
+
+pub struct RequestBuilder<S, D> {
+    src: S,
+    dest: D,
     detectors: Vec<Box<dyn Detector>>,
     getters: HashMap<String, Box<dyn Getter + Send>>,
 }
 
-impl Default for Builder {
+impl Default for RequestBuilder<NoSrc, NoDest> {
     fn default() -> Self {
         let mut getters: HashMap<String, Box<dyn Getter + Send>> = HashMap::new();
         getters.insert("file".to_string(), Box::new(getters::File));
@@ -97,23 +120,57 @@ impl Default for Builder {
         getters.insert("s3".to_string(), Box::new(s3));
 
         Self {
-            src: "".to_string(),
-            dest: "".to_string(),
+            src: NoSrc,
+            dest: NoDest,
             getters,
             detectors: vec![Box::new(detectors::File), Box::new(detectors::S3)],
         }
     }
 }
 
-impl Builder {
-    pub fn new(src: &str, dest: &str) -> Self {
-        Self {
-            src: src.to_string(),
-            dest: dest.to_string(),
-            ..Default::default()
+impl RequestBuilder<NoSrc, NoDest> {
+    pub fn builder() -> Self {
+        Default::default()
+    }
+}
+
+impl<D> RequestBuilder<NoSrc, D> {
+    pub fn src(self, src: String) -> RequestBuilder<Src, D> {
+        let Self {
+            src: _,
+            dest,
+            detectors,
+            getters,
+        } = self;
+
+        RequestBuilder {
+            src: Src(src),
+            dest,
+            detectors,
+            getters,
         }
     }
+}
 
+impl<S> RequestBuilder<S, NoDest> {
+    pub fn dest(self, dest: String) -> RequestBuilder<S, Dest> {
+        let Self {
+            src,
+            dest: _,
+            detectors,
+            getters,
+        } = self;
+
+        RequestBuilder {
+            src,
+            dest: Dest(dest),
+            detectors,
+            getters,
+        }
+    }
+}
+
+impl<S, D> RequestBuilder<S, D> {
     pub fn add_getter(mut self, name: &str, getter: Box<dyn Getter + Send>) -> Self {
         self.getters.insert(name.to_string(), getter);
         self
@@ -123,20 +180,18 @@ impl Builder {
         self.detectors.push(detector);
         self
     }
+}
 
+impl RequestBuilder<Src, Dest> {
     fn detect(&self) -> Result<String, Error> {
-        if self.src.is_empty() {
-            return Err(Error::SourceNotFound);
-        }
+        let (is_force, _) = get_forced_proto(&self.src.0);
 
-        let (is_force, _) = get_forced_proto(&self.src);
-
-        if Url::parse(self.src.as_str()).is_ok() {
-            return Ok(self.src.clone());
+        if Url::parse(self.src.0.as_str()).is_ok() {
+            return Ok(self.src.0.clone());
         }
 
         for d in self.detectors.iter() {
-            let res = d.detect(&self.src)?;
+            let res = d.detect(&self.src.0)?;
 
             println!("res: {:?}", res);
 
@@ -156,7 +211,7 @@ impl Builder {
             return Ok(src.to_string());
         }
 
-        Err(Error::GetterNotFound(self.src.clone()))
+        Err(Error::GetterNotFound(self.src.0.clone()))
     }
 
     pub async fn get(&self) -> Result<(), Error> {
@@ -170,7 +225,7 @@ impl Builder {
         }
 
         if let Some(getter) = self.getters.get(forced.unwrap()) {
-            return getter.get(&self.dest, src).await;
+            return getter.get(&self.dest.0, src).await;
         }
 
         Ok(())
@@ -201,14 +256,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_simple_detect() {
-        let b = Builder::new("file://test.txt", "test2.txt");
+        let b = RequestBuilder::builder()
+            .src("file://test.txt".to_string())
+            .dest("test2.txt".to_string());
         let res = b.detect().unwrap();
         assert_eq!("file://test.txt", res);
     }
 
     #[tokio::test]
     async fn test_file_detect_without_proto() {
-        let b = Builder::new("test.txt", "test2.txt");
+        let b = RequestBuilder::builder()
+            .src("test.txt".to_string())
+            .dest("test2.txt".to_string());
+
         let res = b.detect().unwrap();
         let p = env::current_dir().unwrap().join("test.txt");
         assert_eq!(format!("file://{}", p.to_str().unwrap()), res);
@@ -221,7 +281,10 @@ mod tests {
         let mut f = File::create(source).unwrap();
 
         f.write_all("test".as_bytes()).unwrap();
-        let builder = Builder::new(source, dest);
+        let builder = RequestBuilder::builder()
+            .src(source.to_string())
+            .dest(dest.to_string());
+
         println!("src: {:?}\ndest: {:?}", builder.src, builder.dest);
         builder.get().await.unwrap();
         fs::remove_file(source).unwrap();
